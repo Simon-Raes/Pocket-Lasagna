@@ -1,0 +1,22 @@
+# General/OS
+
+.DS_Store
+
+# Unity
+
+Library/
+Temp/
+Obj/
+UnityGenerated/
+ExportedObj/
+
+*.svd
+*.userprefs
+*.csproj
+*.pidb
+*.suo
+*.sln
+*.user
+*.unityproj
+*.booproj
+
