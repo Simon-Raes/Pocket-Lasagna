@@ -54,6 +54,9 @@ namespace GoogleARCore.HelloAR
 
         private List<TrackedPlane> m_allPlanes = new List<TrackedPlane>();
 
+        public GameObject previewLasagnaPrefab;
+        private GameObject displayedPreviewLasagna = null;
+
         private Color[] m_planeColors = new Color[] {
             new Color(1.0f, 1.0f, 1.0f),
             new Color(0.956f, 0.262f, 0.211f),
@@ -75,7 +78,7 @@ namespace GoogleARCore.HelloAR
         /// <summary>
         /// The Unity Update() method.
         /// </summary>
-        public void Update ()
+        public void Update()
         {
             _QuitOnConnectionErrors();
 
@@ -120,14 +123,69 @@ namespace GoogleARCore.HelloAR
 
             m_searchingForPlaneUI.SetActive(showSearchingUI);
 
+
+
+            TrackableHit hit;
+            TrackableHitFlag raycastFilter = TrackableHitFlag.PlaneWithinBounds | TrackableHitFlag.PlaneWithinPolygon;
+
+            Vector2 screenCenter = new Vector2(Screen.width / 2, Screen.height / 2);
+
+            if (Session.Raycast(m_firstPersonCamera.ScreenPointToRay(screenCenter), raycastFilter, out hit))
+            {
+                // Create an anchor to allow ARCore to track the hitpoint as understanding of the physical
+                // world evolves.
+                var anchor = Session.CreateAnchor(hit.Point, Quaternion.identity);
+
+                if (displayedPreviewLasagna != null)
+                {
+                    displayedPreviewLasagna.SetActive(true);
+                    // TODO should really do this in previewplate, but doesn't work
+                    // script doesn't run when not active? 
+                    // script/rotation resets when becoming active again?
+                    displayedPreviewLasagna.transform.Rotate(Vector3.up * Time.deltaTime * 40);
+
+                    displayedPreviewLasagna.transform.position = hit.Point;
+                }
+                else
+                {
+                    // Intanstiate an Andy Android object as a child of the anchor; it's transform will now benefit
+                    // from the anchor's tracking.
+                    displayedPreviewLasagna = Instantiate(previewLasagnaPrefab, hit.Point, Quaternion.identity,
+                        anchor.transform);
+
+                    // Andy should look at the camera but still be flush with the plane.
+                    displayedPreviewLasagna.transform.LookAt(m_firstPersonCamera.transform);
+                    displayedPreviewLasagna.transform.rotation = Quaternion.Euler(0.0f,
+                        displayedPreviewLasagna.transform.rotation.eulerAngles.y, displayedPreviewLasagna.transform.rotation.z);
+
+                    // Use a plane attachment component to maintain Andy's y-offset from the plane
+                    // (occurs after anchor updates).
+                    displayedPreviewLasagna.GetComponent<PlaneAttachment>().Attach(hit.Plane);
+                }
+            }
+            else
+            {
+                if (displayedPreviewLasagna != null)
+                {
+                    displayedPreviewLasagna.SetActive(false);
+                }
+            }
+
+
+
+
+
+
+
+
             Touch touch;
             if (Input.touchCount < 1 || (touch = Input.GetTouch(0)).phase != TouchPhase.Began)
             {
                 return;
             }
 
-            TrackableHit hit;
-            TrackableHitFlag raycastFilter = TrackableHitFlag.PlaneWithinBounds | TrackableHitFlag.PlaneWithinPolygon;
+            // TrackableHit hit;
+            // TrackableHitFlag raycastFilter = TrackableHitFlag.PlaneWithinBounds | TrackableHitFlag.PlaneWithinPolygon;
 
             if (Session.Raycast(m_firstPersonCamera.ScreenPointToRay(touch.position), raycastFilter, out hit))
             {
@@ -137,13 +195,14 @@ namespace GoogleARCore.HelloAR
 
                 // Intanstiate an Andy Android object as a child of the anchor; it's transform will now benefit
                 // from the anchor's tracking.
-                var andyObject = Instantiate(m_andyAndroidPrefab, hit.Point, Quaternion.identity,
+                var andyObject = Instantiate(m_andyAndroidPrefab, displayedPreviewLasagna.transform.position, Quaternion.identity,
                     anchor.transform);
 
                 // Andy should look at the camera but still be flush with the plane.
                 andyObject.transform.LookAt(m_firstPersonCamera.transform);
                 andyObject.transform.rotation = Quaternion.Euler(0.0f,
-                    andyObject.transform.rotation.eulerAngles.y, andyObject.transform.rotation.z);
+                    displayedPreviewLasagna.transform.rotation.eulerAngles.y, displayedPreviewLasagna.transform.rotation.z);
+                    // andyObject.transform.rotation.eulerAngles.y, andyObject.transform.rotation.z);
 
                 // Use a plane attachment component to maintain Andy's y-offset from the plane
                 // (occurs after anchor updates).
