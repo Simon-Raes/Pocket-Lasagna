@@ -9,9 +9,10 @@ public class SwipeController : MonoBehaviour
     public Text swipeText;
 
     public GameObject lasagnasAnchor;
-    public GameObject lasagnaSmall;
-    public GameObject lasagnaMedium;
-    public GameObject lasagnaLarge;
+    // public GameObject lasagnaSmall;
+    // public GameObject lasagnaMedium;
+    // public GameObject lasagnaLarge;
+    public GameObject[] lasagnas;
 
     public Transform positionLeft;
     public Transform positionMiddle;
@@ -26,10 +27,87 @@ public class SwipeController : MonoBehaviour
     private float minSwipeDist = 50.0f;
     private float maxSwipeTime = 0.5f;
 
+    private bool dragging;
+    private Vector3? previousMousePosition = null;
+
+    void Start()
+    {
+
+    }
+
     void Update()
     {
-        DetectSwipe();
-        DetectButton();
+        DetectDrag();
+        // DetectSwipe();
+        // DetectButton();
+    }
+
+    private void DetectDrag()
+    {
+        if (Input.GetMouseButtonDown(0))
+        {
+            dragging = true;
+
+            // TODO cancel snapping animation
+        }
+        if (Input.GetMouseButtonUp(0))
+        {
+            dragging = false;
+            previousMousePosition = null;
+
+            // TODO keep velocity going after releasing during a fling
+            // Then when that fling velocity reaches zero, snap to lasagna
+            SnapToNearestLasagna();
+        }
+
+        if (dragging)
+        {
+            if (previousMousePosition != null)
+            {
+                Vector2 currentPosition = Input.mousePosition;
+
+                float xDiff = currentPosition.x - previousMousePosition.Value.x;
+                print("drag diff: " + xDiff);
+                lasagnasAnchor.transform.position = new Vector3(
+                    lasagnasAnchor.transform.position.x + xDiff / 800,
+                    lasagnasAnchor.transform.position.y,
+                    lasagnasAnchor.transform.position.z);
+            }
+
+            // 0,0 is bottom left
+            previousMousePosition = Input.mousePosition;
+        }
+    }
+
+    private void SnapToNearestLasagna()
+    {
+        GameObject closestLasagna = null;
+        float closestDistance = float.MaxValue;
+
+        foreach(GameObject lasagna in lasagnas)
+        {
+            print("las pos " + lasagna + ": " + lasagna.transform.position.x);
+            float xPos = lasagna.transform.position.x;
+            float distance = Mathf.Abs(xPos);
+
+            if(distance <= closestDistance)
+            {
+                closestDistance = distance;
+                closestLasagna = lasagna;
+            }
+            else
+            {
+                // Moving farther away again, we already have the closest lasagna.
+                break;
+            }
+        }
+
+        float distanceToMove = -closestLasagna.transform.position.x; 
+
+        lasagnasAnchor.transform.position = new Vector3(
+                    lasagnasAnchor.transform.position.x + distanceToMove,
+                    lasagnasAnchor.transform.position.y,
+                    lasagnasAnchor.transform.position.z);
     }
 
     private void DetectSwipe()
@@ -114,7 +192,7 @@ public class SwipeController : MonoBehaviour
         if (Input.GetKey("right"))
             OnSwipeRight();
 
-		if (Input.GetKey("up"))
+        if (Input.GetKey("up"))
             OnSwipeUp();
     }
 
@@ -131,7 +209,7 @@ public class SwipeController : MonoBehaviour
 
     private void OnSwipeUp()
     {
-		swipeText.text = "UP!";
+        swipeText.text = "UP!";
         SceneManager.LoadScene(1);
     }
 
