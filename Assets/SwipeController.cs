@@ -29,6 +29,10 @@ public class SwipeController : MonoBehaviour
 
     private bool dragging;
     private Vector3? previousMousePosition = null;
+    private bool snapping;
+    private Vector3 snapTargetPosition;
+
+    private float snapSpeed = 3;
 
     void Start()
     {
@@ -47,6 +51,7 @@ public class SwipeController : MonoBehaviour
         if (Input.GetMouseButtonDown(0))
         {
             dragging = true;
+            snapping = false;
 
             // TODO cancel snapping animation
         }
@@ -57,7 +62,7 @@ public class SwipeController : MonoBehaviour
 
             // TODO keep velocity going after releasing during a fling
             // Then when that fling velocity reaches zero, snap to lasagna
-            SnapToNearestLasagna();
+            FindSnapTargetPosition();
         }
 
         if (dragging)
@@ -77,37 +82,46 @@ public class SwipeController : MonoBehaviour
             // 0,0 is bottom left
             previousMousePosition = Input.mousePosition;
         }
+
+        if (snapping)
+        {
+            float step = snapSpeed * Time.deltaTime;
+            lasagnasAnchor.transform.position = Vector3.MoveTowards(lasagnasAnchor.transform.position, snapTargetPosition, step);
+        }
     }
 
-    private void SnapToNearestLasagna()
+    private void FindSnapTargetPosition()
     {
         GameObject closestLasagna = null;
         float closestDistance = float.MaxValue;
 
-        foreach(GameObject lasagna in lasagnas)
+        foreach (GameObject lasagna in lasagnas)
         {
             print("las pos " + lasagna + ": " + lasagna.transform.position.x);
             float xPos = lasagna.transform.position.x;
             float distance = Mathf.Abs(xPos);
 
-            if(distance <= closestDistance)
+            if (distance <= closestDistance)
             {
                 closestDistance = distance;
                 closestLasagna = lasagna;
             }
             else
             {
-                // Moving farther away again, we already have the closest lasagna.
+                // Moving farther away again which means we already have our closest lasagna.
                 break;
             }
         }
 
-        float distanceToMove = -closestLasagna.transform.position.x; 
+        float distanceToMove = -closestLasagna.transform.position.x;
 
-        lasagnasAnchor.transform.position = new Vector3(
+
+        snapTargetPosition = new Vector3(
                     lasagnasAnchor.transform.position.x + distanceToMove,
                     lasagnasAnchor.transform.position.y,
                     lasagnasAnchor.transform.position.z);
+        snapping = true;
+
     }
 
     private void DetectSwipe()
