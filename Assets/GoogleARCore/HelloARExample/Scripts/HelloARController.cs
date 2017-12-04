@@ -43,7 +43,7 @@ namespace GoogleARCore.HelloAR
         /// <summary>
         /// A model to place when a raycast from a user touch hits a plane.
         /// </summary>
-        public GameObject m_andyAndroidPrefab;
+        public GameObject instantiateLasagna;
 
         /// <summary>
         /// A gameobject parenting UI for displaying the "searching for planes" snackbar.
@@ -176,10 +176,8 @@ namespace GoogleARCore.HelloAR
 
 
 
-
-
-            Touch touch;
-            if (Input.touchCount < 1 || (touch = Input.GetTouch(0)).phase != TouchPhase.Began)
+        
+            if(!TappedScreen())
             {
                 return;
             }
@@ -187,7 +185,7 @@ namespace GoogleARCore.HelloAR
             // TrackableHit hit;
             // TrackableHitFlag raycastFilter = TrackableHitFlag.PlaneWithinBounds | TrackableHitFlag.PlaneWithinPolygon;
 
-            if (Session.Raycast(m_firstPersonCamera.ScreenPointToRay(touch.position), raycastFilter, out hit))
+            if (Session.Raycast(m_firstPersonCamera.ScreenPointToRay(Input.GetTouch(0).position), raycastFilter, out hit))
             {
                 // Create an anchor to allow ARCore to track the hitpoint as understanding of the physical
                 // world evolves.
@@ -195,19 +193,45 @@ namespace GoogleARCore.HelloAR
 
                 // Intanstiate an Andy Android object as a child of the anchor; it's transform will now benefit
                 // from the anchor's tracking.
-                var andyObject = Instantiate(m_andyAndroidPrefab, displayedPreviewLasagna.transform.position, Quaternion.identity,
+                var lasagnaObject = Instantiate(instantiateLasagna, displayedPreviewLasagna.transform.position, Quaternion.identity,
                     anchor.transform);
 
+                PreviewPlate prevPlate = displayedPreviewLasagna.GetComponent<PreviewPlate>();
+                float scale = prevPlate.heightScale;
+
+                lasagnaObject.GetComponent<InstantiatePlate>().SetHeightScale(scale);
+
                 // Andy should look at the camera but still be flush with the plane.
-                andyObject.transform.LookAt(m_firstPersonCamera.transform);
-                andyObject.transform.rotation = Quaternion.Euler(0.0f,
+                lasagnaObject.transform.LookAt(m_firstPersonCamera.transform);
+                lasagnaObject.transform.rotation = Quaternion.Euler(0.0f,
                     displayedPreviewLasagna.transform.rotation.eulerAngles.y, displayedPreviewLasagna.transform.rotation.z);
-                    // andyObject.transform.rotation.eulerAngles.y, andyObject.transform.rotation.z);
+          
+                
 
                 // Use a plane attachment component to maintain Andy's y-offset from the plane
                 // (occurs after anchor updates).
-                andyObject.GetComponent<PlaneAttachment>().Attach(hit.Plane);
+                lasagnaObject.GetComponent<PlaneAttachment>().Attach(hit.Plane);
             }
+        }
+
+        private float touchDownTime;
+
+        private bool TappedScreen()
+        {
+            Touch touch = Input.GetTouch(0);
+            if (Input.touchCount == 1)
+            {
+                if (touch.phase == TouchPhase.Began)
+                {
+                    touchDownTime = Time.timeSinceLevelLoad;
+                }
+                if(touch.phase == TouchPhase.Ended && Time.timeSinceLevelLoad - touchDownTime < .1)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>

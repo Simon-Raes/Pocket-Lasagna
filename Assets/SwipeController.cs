@@ -15,12 +15,12 @@ public class SwipeController : MonoBehaviour
     public Transform positionMiddle;
     public Transform positionRight;
 
-    private float fingerStartTime = 0.0f;
-    private Vector2 fingerStartPos = Vector2.zero;
+    // private float fingerStartTime = 0.0f;
+    // private Vector2 fingerStartPos = Vector2.zero;
 
-    private bool isSwipe = false;
-    private float minSwipeDist = 50.0f;
-    private float maxSwipeTime = 0.5f;
+    // private bool isSwipe = false;
+    // private float minSwipeDist = 50.0f;
+    // private float maxSwipeTime = 0.5f;
 
     private bool draggingMouse;
     private bool wasDraggingFinger;
@@ -125,8 +125,6 @@ public class SwipeController : MonoBehaviour
 
     private void MoveLasagnasForDrag(float xDistance)
     {
-        
-
         lasagnasAnchor.transform.position = new Vector3(
                             lasagnasAnchor.transform.position.x + xDistance / 800,
                             lasagnasAnchor.transform.position.y,
