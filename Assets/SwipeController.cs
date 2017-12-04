@@ -6,18 +6,14 @@ using UnityEngine.UI;
 
 public class SwipeController : MonoBehaviour
 {
-    public Text swipeText;
+    public Text flingText;
 
     public GameObject lasagnasAnchor;
-    public GameObject lasagnaSmall;
-    public GameObject lasagnaMedium;
-    public GameObject lasagnaLarge;
+    public GameObject[] lasagnas;
 
     public Transform positionLeft;
     public Transform positionMiddle;
     public Transform positionRight;
-
-
 
     private float fingerStartTime = 0.0f;
     private Vector2 fingerStartPos = Vector2.zero;
@@ -26,118 +22,159 @@ public class SwipeController : MonoBehaviour
     private float minSwipeDist = 50.0f;
     private float maxSwipeTime = 0.5f;
 
-    void Update()
+    private bool draggingMouse;
+    private bool wasDraggingFinger;
+    private Vector3? previousMousePosition = null;
+    private bool flinging; // Continued, decelerating motion after letting go during a drag
+    private bool snapping; // Moving to place the nearest lasagna in the center of the screen after a fling ends
+    private Vector3 snapTargetPosition;
+    private float flingSpeed;
+
+    private float snapSpeed = 3;
+
+    void Start()
     {
-        DetectSwipe();
-        DetectButton();
+
     }
 
-    private void DetectSwipe()
+    void Update()
     {
-        if (Input.touchCount > 0)
+        DetectTap();
+        DetectDrag();
+    }
+
+    private void DetectTap()
+    {
+        if (Input.touchCount == 1 && Input.GetTouch(0).tapCount == 2)
         {
-
-            foreach (Touch touch in Input.touches)
-            {
-                switch (touch.phase)
-                {
-                    case TouchPhase.Began:
-                        /* this is a new touch */
-                        isSwipe = true;
-                        fingerStartTime = Time.time;
-                        fingerStartPos = touch.position;
-                        break;
-
-                    case TouchPhase.Canceled:
-                        /* The touch is being canceled */
-                        isSwipe = false;
-                        break;
-
-                    case TouchPhase.Ended:
-
-                        float gestureTime = Time.time - fingerStartTime;
-                        float gestureDist = (touch.position - fingerStartPos).magnitude;
-
-                        if (isSwipe && gestureTime < maxSwipeTime && gestureDist > minSwipeDist)
-                        {
-                            Vector2 direction = touch.position - fingerStartPos;
-                            Vector2 swipeType = Vector2.zero;
-
-                            if (Mathf.Abs(direction.x) > Mathf.Abs(direction.y))
-                            {
-                                // the swipe is horizontal:
-                                swipeType = Vector2.right * Mathf.Sign(direction.x);
-                            }
-                            else
-                            {
-                                // the swipe is vertical:
-                                swipeType = Vector2.up * Mathf.Sign(direction.y);
-                            }
-
-                            if (swipeType.x != 0.0f)
-                            {
-                                if (swipeType.x > 0.0f)
-                                {
-                                    OnSwipeRight();
-                                }
-                                else
-                                {
-                                    OnSwipeLeft();
-                                }
-                            }
-
-                            if (swipeType.y != 0.0f)
-                            {
-                                if (swipeType.y > 0.0f)
-                                {
-                                    OnSwipeUp();
-                                }
-                                else
-                                {
-                                    swipeText.text = "DOWN!";
-                                }
-                            }
-
-                        }
-
-                        break;
-                }
-            }
+            LoadArScene();
         }
     }
 
-    private void DetectButton()
+    private void DetectDrag()
     {
-        if (Input.GetKey("left"))
-            OnSwipeLeft();
+        if (Input.GetMouseButtonDown(0))
+        {
+            draggingMouse = true;
+            flinging = false;
+            snapping = false;
+        }
+        if (Input.GetMouseButtonUp(0))
+        {
+            draggingMouse = false;
+            previousMousePosition = null;
 
-        if (Input.GetKey("right"))
-            OnSwipeRight();
+            StartFling();
+        }
 
-		if (Input.GetKey("up"))
-            OnSwipeUp();
+        if (draggingMouse)
+        {
+            if (previousMousePosition != null)
+            {
+                Vector2 currentPosition = Input.mousePosition;
+
+                float xDiff = currentPosition.x - previousMousePosition.Value.x;
+                flingSpeed = xDiff;
+                MoveLasagnasForDrag(xDiff);
+            }
+
+            // 0,0 is bottom left
+            previousMousePosition = Input.mousePosition;
+        }
+
+        if (Input.touchCount > 0)
+        {
+            if (Input.GetTouch(0).phase == TouchPhase.Moved)
+            {
+                wasDraggingFinger = true;
+                float xDiff = Input.GetTouch(0).deltaPosition.x;
+
+                // TODO find a cleane rsolution for the difference between mouse and fling events?
+                flingSpeed = xDiff * 5;
+                MoveLasagnasForDrag(xDiff);
+            }
+        }
+        else if (wasDraggingFinger)
+        {
+            wasDraggingFinger = false;
+            StartFling();
+        }
+
+        if (flinging)
+        {
+            flingSpeed = flingSpeed * .75f;
+            print("flinging at " + flingSpeed);
+            print("deltatime" + Time.deltaTime);
+            lasagnasAnchor.transform.position = new Vector3(lasagnasAnchor.transform.position.x + flingSpeed / 800,
+                            lasagnasAnchor.transform.position.y,
+                            lasagnasAnchor.transform.position.z);
+
+            if (Mathf.Abs(flingSpeed) < 40)
+            {
+                flinging = false;
+                StartSnapping();
+            }
+        }
+
+        if (snapping)
+        {
+            float step = snapSpeed * Time.deltaTime;
+            lasagnasAnchor.transform.position = Vector3.MoveTowards(lasagnasAnchor.transform.position, snapTargetPosition, step);
+        }
     }
 
-    private void OnSwipeLeft()
+    private void MoveLasagnasForDrag(float xDistance)
     {
-        swipeText.text = "LEFT!";
-        SlideLeft();
+        
+
+        lasagnasAnchor.transform.position = new Vector3(
+                            lasagnasAnchor.transform.position.x + xDistance / 800,
+                            lasagnasAnchor.transform.position.y,
+                            lasagnasAnchor.transform.position.z);
     }
 
-    private void OnSwipeRight()
+    //TODO just make the fling check where the next lasagna is and move towards that location, starting with the fling velocity
+    // Don't need this weird overshooting
+    private void StartFling()
     {
-        swipeText.text = "RIGHT!";
+        flingText.text = flingSpeed.ToString();
+        flinging = true;
     }
 
-    private void OnSwipeUp()
+    private void StartSnapping()
     {
-		swipeText.text = "UP!";
+        GameObject closestLasagna = null;
+        float closestDistance = float.MaxValue;
+
+        foreach (GameObject lasagna in lasagnas)
+        {
+            print("las pos " + lasagna + ": " + lasagna.transform.position.x);
+            float xPos = lasagna.transform.position.x;
+            float distance = Mathf.Abs(xPos);
+
+            if (distance <= closestDistance)
+            {
+                closestDistance = distance;
+                closestLasagna = lasagna;
+            }
+            else
+            {
+                // Moving farther away again which means we already have our closest lasagna.
+                break;
+            }
+        }
+
+        float distanceToMove = -closestLasagna.transform.position.x;
+
+        snapTargetPosition = new Vector3(
+                    lasagnasAnchor.transform.position.x + distanceToMove,
+                    lasagnasAnchor.transform.position.y,
+                    lasagnasAnchor.transform.position.z);
+        snapping = true;
+    }
+
+    private void LoadArScene()
+    {
         SceneManager.LoadScene(1);
-    }
-
-    void SlideLeft()
-    {
-        var anim = lasagnasAnchor.GetComponent<Animator>();
-        anim.SetTrigger("SlideLeft");
     }
 }
