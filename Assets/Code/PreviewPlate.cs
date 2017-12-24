@@ -7,7 +7,7 @@ public class PreviewPlate : MonoBehaviour
     public float rotationSpeed = 10;
     public GameObject lasagna;
 
-    public float heightScale;
+    public float heightScale = 1;
 
     // Use this for initialization
     void Start()

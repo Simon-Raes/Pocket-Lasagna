@@ -24,6 +24,7 @@ namespace GoogleARCore.HelloAR
     using UnityEngine;
     using UnityEngine.Rendering;
     using GoogleARCore;
+    using UnityEngine.UI;
 
     /// <summary>
     /// Controlls the HelloAR example.
@@ -50,12 +51,15 @@ namespace GoogleARCore.HelloAR
         /// </summary>
         public GameObject m_searchingForPlaneUI;
 
+        public GameObject addButton;
+
         private List<TrackedPlane> m_newPlanes = new List<TrackedPlane>();
 
         private List<TrackedPlane> m_allPlanes = new List<TrackedPlane>();
 
         public GameObject previewLasagnaPrefab;
         private GameObject displayedPreviewLasagna = null;
+        private bool showPreview;
 
         private Color[] m_planeColors = new Color[] {
             new Color(1.0f, 1.0f, 1.0f),
@@ -74,6 +78,12 @@ namespace GoogleARCore.HelloAR
             new Color(1.0f, 0.921f, 0.231f),
             new Color(1.0f, 0.756f, 0.027f)
         };
+
+        public void Start()
+        {
+            addButton.SetActive(false);
+            showPreview = true;
+        }
 
         /// <summary>
         /// The Unity Update() method.
@@ -94,20 +104,20 @@ namespace GoogleARCore.HelloAR
             Frame.GetNewPlanes(ref m_newPlanes);
 
             // Iterate over planes found in this frame and instantiate corresponding GameObjects to visualize them.
-            for (int i = 0; i < m_newPlanes.Count; i++)
-            {
-                // Instantiate a plane visualization prefab and set it to track the new plane. The transform is set to
-                // the origin with an identity rotation since the mesh for our prefab is updated in Unity World
-                // coordinates.
-                GameObject planeObject = Instantiate(m_trackedPlanePrefab, Vector3.zero, Quaternion.identity,
-                    transform);
-                planeObject.GetComponent<TrackedPlaneVisualizer>().SetTrackedPlane(m_newPlanes[i]);
+            // for (int i = 0; i < m_newPlanes.Count; i++)
+            // {
+            //     // Instantiate a plane visualization prefab and set it to track the new plane. The transform is set to
+            //     // the origin with an identity rotation since the mesh for our prefab is updated in Unity World
+            //     // coordinates.
+            //     GameObject planeObject = Instantiate(m_trackedPlanePrefab, Vector3.zero, Quaternion.identity,
+            //         transform);
+            //     planeObject.GetComponent<TrackedPlaneVisualizer>().SetTrackedPlane(m_newPlanes[i]);
 
-                // Apply a random color and grid rotation.
-                planeObject.GetComponent<Renderer>().material.SetColor("_GridColor", m_planeColors[Random.Range(0,
-                    m_planeColors.Length - 1)]);
-                planeObject.GetComponent<Renderer>().material.SetFloat("_UvRotation", Random.Range(0.0f, 360.0f));
-            }
+            //     // Apply a random color and grid rotation.
+            //     planeObject.GetComponent<Renderer>().material.SetColor("_GridColor", m_planeColors[Random.Range(0,
+            //         m_planeColors.Length - 1)]);
+            //     planeObject.GetComponent<Renderer>().material.SetFloat("_UvRotation", Random.Range(0.0f, 360.0f));
+            // }
 
             // Disable the snackbar UI when no planes are valid.
             bool showSearchingUI = true;
@@ -130,11 +140,14 @@ namespace GoogleARCore.HelloAR
 
             Vector2 screenCenter = new Vector2(Screen.width / 2, Screen.height / 2);
 
-            if (Session.Raycast(m_firstPersonCamera.ScreenPointToRay(screenCenter), raycastFilter, out hit))
+            // Diplay preview lasagna
+            Anchor anchor;
+            
+            if (showPreview && Session.Raycast(m_firstPersonCamera.ScreenPointToRay(screenCenter), raycastFilter, out hit))
             {
                 // Create an anchor to allow ARCore to track the hitpoint as understanding of the physical
                 // world evolves.
-                var anchor = Session.CreateAnchor(hit.Point, Quaternion.identity);
+                 anchor = Session.CreateAnchor(hit.Point, Quaternion.identity);
 
                 if (displayedPreviewLasagna != null)
                 {
@@ -169,6 +182,8 @@ namespace GoogleARCore.HelloAR
                 {
                     displayedPreviewLasagna.SetActive(false);
                 }
+
+                return;
             }
 
 
@@ -176,14 +191,80 @@ namespace GoogleARCore.HelloAR
 
 
 
-        
-            if(!TappedScreen())
+
+            if (!TappedScreen())
             {
                 return;
             }
 
             // TrackableHit hit;
             // TrackableHitFlag raycastFilter = TrackableHitFlag.PlaneWithinBounds | TrackableHitFlag.PlaneWithinPolygon;
+
+            addButton.SetActive(true);
+            showPreview = false;
+
+            // if (Session.Raycast(m_firstPersonCamera.ScreenPointToRay(Input.GetTouch(0).position), raycastFilter, out hit))
+            // {
+                // Create an anchor to allow ARCore to track the hitpoint as understanding of the physical
+                // world evolves.
+                 anchor = Session.CreateAnchor(hit.Point, Quaternion.identity);
+
+                // Intanstiate an Andy Android object as a child of the anchor; it's transform will now benefit
+                // from the anchor's tracking.
+                var lasagnaObject = Instantiate(instantiateLasagna, displayedPreviewLasagna.transform.position, Quaternion.identity,
+                    anchor.transform);
+
+                PreviewPlate prevPlate = displayedPreviewLasagna.GetComponent<PreviewPlate>();
+                float scale = prevPlate.heightScale;
+
+                lasagnaObject.GetComponent<InstantiatePlate>().SetHeightScale(scale);
+
+                // Andy should look at the camera but still be flush with the plane.
+                lasagnaObject.transform.LookAt(m_firstPersonCamera.transform);
+                lasagnaObject.transform.rotation = Quaternion.Euler(0.0f,
+                    displayedPreviewLasagna.transform.rotation.eulerAngles.y, displayedPreviewLasagna.transform.rotation.z);
+
+
+
+                // Use a plane attachment component to maintain Andy's y-offset from the plane
+                // (occurs after anchor updates).
+                lasagnaObject.GetComponent<PlaneAttachment>().Attach(hit.Plane);
+
+
+                
+            // }
+        }
+
+        private float touchDownTime;
+
+        private bool TappedScreen()
+        {
+            Touch touch = Input.GetTouch(0);
+            if (Input.touchCount == 1)
+            {
+                if (touch.phase == TouchPhase.Began)
+                {
+                    touchDownTime = Time.timeSinceLevelLoad;
+                }
+                if (touch.phase == TouchPhase.Ended && Time.timeSinceLevelLoad - touchDownTime < .1)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public void OnAddClicked()
+        {
+            showPreview = true;
+        }
+
+        public void OnPlaceClicked()
+        {
+            TrackableHit hit;
+            TrackableHitFlag raycastFilter = TrackableHitFlag.PlaneWithinBounds | TrackableHitFlag.PlaneWithinPolygon;
+
 
             if (Session.Raycast(m_firstPersonCamera.ScreenPointToRay(Input.GetTouch(0).position), raycastFilter, out hit))
             {
@@ -205,33 +286,16 @@ namespace GoogleARCore.HelloAR
                 lasagnaObject.transform.LookAt(m_firstPersonCamera.transform);
                 lasagnaObject.transform.rotation = Quaternion.Euler(0.0f,
                     displayedPreviewLasagna.transform.rotation.eulerAngles.y, displayedPreviewLasagna.transform.rotation.z);
-          
-                
+
+
 
                 // Use a plane attachment component to maintain Andy's y-offset from the plane
                 // (occurs after anchor updates).
                 lasagnaObject.GetComponent<PlaneAttachment>().Attach(hit.Plane);
+
+
+                // addButton.SetActive(true);
             }
-        }
-
-        private float touchDownTime;
-
-        private bool TappedScreen()
-        {
-            Touch touch = Input.GetTouch(0);
-            if (Input.touchCount == 1)
-            {
-                if (touch.phase == TouchPhase.Began)
-                {
-                    touchDownTime = Time.timeSinceLevelLoad;
-                }
-                if(touch.phase == TouchPhase.Ended && Time.timeSinceLevelLoad - touchDownTime < .1)
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         /// <summary>
